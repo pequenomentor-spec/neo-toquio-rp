@@ -24,6 +24,7 @@ const APP_DATA = {
         ],
         member: [
             { id: 'dashboard', icon: 'fa-home', label: 'Dashboard', route: 'dashboard' },
+            { id: 'feed', icon: 'fa-hashtag', label: 'Status', route: 'feed' },
             { id: 'profile', icon: 'fa-user', label: 'Meu Perfil', route: 'profile' },
             { id: 'bank', icon: 'fa-building-columns', label: 'Banco', route: 'bank' },
             { id: 'chat', icon: 'fa-comments', label: 'Mensagens', route: 'chat' },
@@ -266,6 +267,7 @@ const APP_DATA = {
     // Chat/Mensagens (estilo Instagram DM)
     conversations: [],
     messages: [],
+    posts: [],
 
     // Rules - Novas regras de NeoTóquio
     rules: {
@@ -749,6 +751,80 @@ const DataManager = {
             } catch (e) {
                 console.error('Error logging to Firebase:', e);
             }
+        }
+    },
+
+    // ====== FEED SOCIAL SYSTEM ======
+
+    async createPost(content) {
+        if (!APP_DATA.currentUser) return { success: false, error: 'Você precisa estar logado' };
+        if (!content || content.trim().length === 0) return { success: false, error: 'O conteúdo não pode ser vazio' };
+
+        const post = {
+            authorId: APP_DATA.currentUser.id,
+            authorName: APP_DATA.currentUser.avakinName,
+            authorRole: APP_DATA.currentUser.role || 'member',
+            authorAvatar: APP_DATA.currentUser.avatar || 'img/default_avatar.png',
+            content: content.trim(),
+            likes: [],
+            comments: [],
+            timestamp: new Date().toISOString()
+        };
+
+        try {
+            await FirebaseDB.addDocument(FirebaseDB.COLLECTIONS.POSTS, post);
+            this.log('post_created', `Post criado por ${APP_DATA.currentUser.avakinName}`);
+            return { success: true };
+        } catch (error) {
+            console.error('Error creating post:', error);
+            return { success: false, error: 'Erro ao criar post' };
+        }
+    },
+
+    async toggleLike(postId) {
+        if (!APP_DATA.currentUser) return { success: false };
+        const userId = APP_DATA.currentUser.id;
+
+        const post = APP_DATA.posts.find(p => p.id === postId);
+        if (!post) return { success: false, error: 'Post não encontrado' };
+
+        const isLiked = post.likes && post.likes.includes(userId);
+
+        try {
+            // Usando firebase.firestore.FieldValue que está disponível globalmente via compat script
+            const update = {};
+            if (isLiked) {
+                update.likes = firebase.firestore.FieldValue.arrayRemove(userId);
+            } else {
+                update.likes = firebase.firestore.FieldValue.arrayUnion(userId);
+            }
+
+            await FirebaseDB.updateDocument(FirebaseDB.COLLECTIONS.POSTS, postId, update);
+            return { success: true };
+        } catch (error) {
+            console.error('Error toggling like:', error);
+            return { success: false };
+        }
+    },
+
+    async deletePost(postId) {
+        if (!APP_DATA.currentUser) return { success: false };
+
+        // Verificar se é autor ou admin
+        const post = APP_DATA.posts.find(p => p.id === postId);
+        if (!post) return { success: false, error: 'Post não encontrado' };
+
+        if (post.authorId !== APP_DATA.currentUser.id && APP_DATA.currentUser.role !== 'admin' && APP_DATA.currentUser.role !== 'subadmin') {
+            return { success: false, error: 'Sem permissão' };
+        }
+
+        try {
+            await FirebaseDB.deleteDocument(FirebaseDB.COLLECTIONS.POSTS, postId);
+            this.log('post_deleted', `Post deletado: ${postId}`);
+            return { success: true };
+        } catch (error) {
+            console.error('Error deleting post:', error);
+            return { success: false, error: 'Erro ao deletar post' };
         }
     },
 

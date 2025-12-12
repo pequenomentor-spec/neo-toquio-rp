@@ -173,34 +173,47 @@ class App {
                 }
             }
         });
-    }
 
-// Handle page visibility for online status
-document.addEventListener('visibilitychange', async () => {
-    if (APP_DATA.currentUser && typeof FirebaseDB !== 'undefined') {
-        if (document.visibilityState === 'hidden') {
-            // User is leaving
-            await FirebaseDB.updateUser(APP_DATA.currentUser.id, {
-                lastActivity: new Date().toISOString()
-            });
-        } else {
-            // User is back
-            await FirebaseDB.updateUser(APP_DATA.currentUser.id, {
-                isOnline: true,
-                lastActivity: new Date().toISOString()
-            });
-        }
-    }
-});
+        window.addEventListener('posts-updated', () => {
+            if (Router.currentPage === 'feed') {
+                const feedList = document.getElementById('feed-list');
+                if (feedList && window.Pages && window.Pages.renderFeedList) {
+                    const posts = APP_DATA.posts || [];
+                    posts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    feedList.innerHTML = window.Pages.renderFeedList(posts);
+                } else {
+                    Router.navigate('feed');
+                }
+            }
+        });
 
-// Handle before unload
-window.addEventListener('beforeunload', () => {
-    if (APP_DATA.currentUser && typeof FirebaseDB !== 'undefined') {
-        // Mark as offline (using sendBeacon for reliability)
-        const data = JSON.stringify({ isOnline: false, lastActivity: new Date().toISOString() });
-        navigator.sendBeacon && navigator.sendBeacon('/api/offline', data);
-    }
-});
+
+        // Handle page visibility for online status
+        document.addEventListener('visibilitychange', async () => {
+            if (APP_DATA.currentUser && typeof FirebaseDB !== 'undefined') {
+                if (document.visibilityState === 'hidden') {
+                    // User is leaving
+                    await FirebaseDB.updateUser(APP_DATA.currentUser.id, {
+                        lastActivity: new Date().toISOString()
+                    });
+                } else {
+                    // User is back
+                    await FirebaseDB.updateUser(APP_DATA.currentUser.id, {
+                        isOnline: true,
+                        lastActivity: new Date().toISOString()
+                    });
+                }
+            }
+        });
+
+        // Handle before unload
+        window.addEventListener('beforeunload', () => {
+            if (APP_DATA.currentUser && typeof FirebaseDB !== 'undefined') {
+                // Mark as offline (using sendBeacon for reliability)
+                const data = JSON.stringify({ isOnline: false, lastActivity: new Date().toISOString() });
+                navigator.sendBeacon && navigator.sendBeacon('/api/offline', data);
+            }
+        });
     }
 }
 

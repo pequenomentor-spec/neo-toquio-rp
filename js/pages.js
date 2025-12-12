@@ -448,6 +448,42 @@ const Pages = {
         `;
     },
 
+    // Feed Page
+    feed() {
+        const posts = APP_DATA.posts || [];
+        // Sort posts
+        posts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        return `
+            <div class="page-header">
+                <h1 class="page-title"><i class="fas fa-hashtag"></i> Status</h1>
+                <p class="page-subtitle">O que está rolando na cidade?</p>
+            </div>
+
+            <div class="feed-container" style="max-width: 800px; margin: 0 auto;">
+                <!-- New Post -->
+                <div class="card p-4 mb-4">
+                     <div class="flex gap-4" style="display:flex; gap:1rem;">
+                        <img src="${APP_DATA.currentUser.avatar || 'img/default_avatar.png'}" class="rounded-full object-cover" style="width: 48px; height: 48px; border-radius:50%;">
+                        <div style="flex:1">
+                            <textarea id="post-content" class="input w-full" rows="3" placeholder="No que você está pensando?" style="width:100%; resize:vertical; min-height:80px;"></textarea>
+                            <div class="flex justify-end mt-2" style="text-align:right; margin-top:0.5rem;">
+                                <button class="btn btn-primary" onclick="Pages.submitPost()">
+                                    <i class="fas fa-paper-plane"></i> Publicar
+                                </button>
+                            </div>
+                        </div>
+                     </div>
+                </div>
+
+                <!-- Feed List -->
+                <div id="feed-list" class="feed-list">
+                    ${Pages.renderFeedList(posts)}
+                </div>
+            </div>
+        `;
+    },
+
     // Profile Page
     profile() {
         const user = Auth.getCurrentUser();
@@ -990,7 +1026,8 @@ const Pages = {
     // ADMIN PAGES
     // ==========================================
 
-    admin() {
+    admin() { return this.renderNewAdminPanel(); },
+    admin_legacy() {
         const totalUsers = APP_DATA.users.filter(u => u.status === 'approved').length;
         const pendingUsers = APP_DATA.users.filter(u => u.status === 'pending').length;
         const pendingRequests = APP_DATA.requests.filter(r => r.status === 'pending').length;
@@ -3130,6 +3167,197 @@ const Pages = {
     },
 
     // Page Initializers
+    // NOVO PAINEL ADMIN (Abas e Realtime)
+    renderNewAdminPanel() {
+        const totalUsers = APP_DATA.users.filter(u => u.status === 'approved').length;
+        const pendingUsers = APP_DATA.users.filter(u => u.status === 'pending').length;
+        const pendingRequests = APP_DATA.requests.filter(r => r.status === 'pending').length;
+
+        // Verificar aba ativa (salvar no localStorage ou usar estado global se possível, mas aqui vai resetar no reload.
+        // O ideal seria ler do DOM ou URL, mas como Pages.admin é chamado pelo Router, a cada navegação reseta.
+        // Vamos forçar 'overview' padrão, e o script de clique troca classe.
+
+        return `
+            <div class="page-header">
+                <h1 class="page-title"><i class="fas fa-shield-alt"></i> Painel Admin</h1>
+                <p class="page-subtitle">Central de Controle</p>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="Pages.switchAdminTab(this, 'overview')">Visão Geral</button>
+                <button class="tab" onclick="Pages.switchAdminTab(this, 'realtime')">Tempo Real</button>
+                <button class="tab" onclick="Pages.switchAdminTab(this, 'messages')">Mensagens</button>
+                <button class="tab" onclick="Pages.switchAdminTab(this, 'logs')">Logs</button>
+            </div>
+
+            <div id="tab-overview" class="tab-panel active">
+                <div class="dashboard-grid">
+                    <div class="stat-card clickable" onclick="Router.navigate('members')">
+                        <div class="stat-icon blue"><i class="fas fa-users"></i></div>
+                        <div class="stat-info">
+                            <h4>${totalUsers}</h4>
+                            <p>Membros</p>
+                        </div>
+                    </div>
+                    <div class="stat-card clickable" onclick="Router.navigate('requests')">
+                        <div class="stat-icon orange"><i class="fas fa-user-clock"></i></div>
+                        <div class="stat-info">
+                            <h4>${pendingUsers}</h4>
+                            <p>Pendentes</p>
+                        </div>
+                    </div>
+                    <div class="stat-card clickable" onclick="Router.navigate('requests')">
+                        <div class="stat-icon purple"><i class="fas fa-inbox"></i></div>
+                        <div class="stat-info">
+                            <h4>${pendingRequests}</h4>
+                            <p>Solicitações</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-grid mt-4">
+                    <div class="admin-card" onclick="Router.navigate('requests')">
+                        <div class="admin-icon"><i class="fas fa-inbox"></i></div>
+                        <div class="admin-info">
+                            <h4>Solicitações</h4>
+                            <p>Aprovar cadastros e pedidos</p>
+                        </div>
+                    </div>
+                    <div class="admin-card" onclick="Router.navigate('members')">
+                        <div class="admin-icon"><i class="fas fa-users-gear"></i></div>
+                        <div class="admin-info">
+                            <h4>Membros</h4>
+                            <p>Gerenciar membros aprovados</p>
+                        </div>
+                    </div>
+                    <div class="admin-card" onclick="Router.navigate('admin-edit')">
+                        <div class="admin-icon"><i class="fas fa-edit"></i></div>
+                        <div class="admin-info">
+                            <h4>Editor de Dados</h4>
+                            <p>Facções, Empregos, Mapas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-realtime" class="tab-panel" style="display:none">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Usuários Online</h3>
+                    </div>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead><tr><th>Usuário</th><th>Status</th><th>Desde</th></tr></thead>
+                            <tbody>${this.renderAdminRealtimeUsers()}</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-messages" class="tab-panel" style="display:none">
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">Últimas Mensagens</h3></div>
+                    <div class="admin-messages-list">${this.renderAdminMessages()}</div>
+                </div>
+            </div>
+
+            <div id="tab-logs" class="tab-panel" style="display:none">
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">Logs do Sistema</h3></div>
+                    <div class="activity-log">${this.renderAdminLogs()}</div>
+                </div>
+            </div>
+        `;
+    },
+
+    switchAdminTab(btn, tabId) {
+        document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+        document.getElementById('tab-' + tabId).style.display = 'block';
+    },
+
+    renderAdminRealtimeUsers() {
+        const users = [...APP_DATA.users].sort((a, b) => (a.isOnline === b.isOnline ? 0 : a.isOnline ? -1 : 1));
+        return users.slice(0, 50).map(u => `
+            <tr>
+                <td><strong>${u.avakinName}</strong> <br><small>ID: ${u.id}</small></td>
+                <td><span class="status-badge ${u.isOnline ? 'online' : 'offline'}">${u.isOnline ? 'Online' : 'Offline'}</span></td>
+                <td>${u.isOnline ? 'Agora' : Utils.timeAgo(u.lastActivity)}</td>
+            </tr>
+        `).join('');
+    },
+
+    renderAdminMessages() {
+        const msgs = APP_DATA.messages || [];
+        if (!msgs.length) return '<p class="text-muted p-3">Sem mensagens.</p>';
+        return msgs.map(m => `<div class="log-item"><strong>${m.senderName}</strong>: ${Utils.truncate(m.text, 50)} <small>${Utils.timeAgo(m.createdAt)}</small></div>`).join('');
+    },
+
+    renderAdminLogs() {
+        return APP_DATA.activityLog.map(l => `<div class="log-item"><strong>${l.action}</strong> ${l.details} <small>${Utils.timeAgo(l.timestamp)}</small></div>`).join('');
+    },
+
+    // ====== FEED HELPERS ======
+    renderFeedList(posts) {
+        if (!posts || posts.length === 0) {
+            return '<div class="card p-4 text-center text-muted">Nenhum post ainda. Seja o primeiro!</div>';
+        }
+
+        return posts.map(post => {
+            const isLiked = post.likes && post.likes.includes(APP_DATA.currentUser.id);
+            const likeCount = post.likes ? post.likes.length : 0;
+            const isAuthor = post.authorId === APP_DATA.currentUser.id;
+            const isAdmin = APP_DATA.currentUser.role === 'admin' || APP_DATA.currentUser.role === 'subadmin';
+
+            return `
+                <div class="card p-4 mb-4 post-card" id="post-${post.id}">
+                    <div class="post-header flex justify-between items-start mb-2" style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
+                        <div class="flex gap-3 items-center" style="display:flex; gap:0.75rem; align-items:center;">
+                            <img src="${post.authorAvatar || 'img/default_avatar.png'}" class="rounded-full object-cover" style="width: 40px; height: 40px; border-radius:50%;">
+                            <div>
+                                <h4 class="font-bold m-0" style="margin:0; font-size:1rem;">${post.authorName}</h4>
+                                <small class="text-muted">${Utils.timeAgo(post.timestamp)}</small>
+                            </div>
+                        </div>
+                        ${(isAuthor || isAdmin) ? `
+                            <button class="btn btn-sm btn-ghost text-danger" onclick="Pages.deletePost('${post.id}')" title="Deletar Post">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                    <div class="post-content mb-3" style="white-space: pre-wrap; margin-bottom:0.75rem;">${post.content}</div>
+                    <div class="post-actions flex gap-4 border-t pt-2 mt-2" style="border-top:1px solid rgba(255,255,255,0.1); padding-top:0.5rem; display:flex; gap:1rem;">
+                        <button class="btn btn-ghost btn-sm ${isLiked ? 'text-primary' : 'text-muted'}" onclick="Pages.toggleLikePost('${post.id}')">
+                            <i class="${isLiked ? 'fas' : 'far'} fa-heart"></i> ${likeCount}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    },
+
+    async submitPost() {
+        const content = document.getElementById('post-content').value;
+        const result = await DataManager.createPost(content);
+        if (result.success) {
+            document.getElementById('post-content').value = '';
+            Utils.showToast('Post publicado!', 'success');
+        } else {
+            Utils.showToast(result.error, 'error');
+        }
+    },
+
+    async toggleLikePost(postId) {
+        await DataManager.toggleLike(postId);
+    },
+
+    async deletePost(postId) {
+        if (confirm('Tem certeza que deseja deletar este post?')) {
+            await DataManager.deletePost(postId);
+        }
+    },
+
     init: {
         login() {
             document.getElementById('login-form')?.addEventListener('submit', async (e) => {

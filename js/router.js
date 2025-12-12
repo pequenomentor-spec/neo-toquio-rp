@@ -7,7 +7,7 @@ const Router = {
 
     // Routes configuration
     publicRoutes: ['home', 'about', 'factions-info', 'rules', 'login', 'register'],
-    memberRoutes: ['dashboard', 'profile', 'bank', 'chat', 'factions', 'jobs', 'inventory', 'citizens', 'maps', 'rules'],
+    memberRoutes: ['dashboard', 'profile', 'bank', 'chat', 'factions', 'jobs', 'inventory', 'citizens', 'maps', 'rules', 'feed'],
     adminRoutes: ['admin', 'requests', 'members', 'admin-edit'],
 
     // Initialize router
