@@ -38,6 +38,15 @@ class App {
             // Small delay for smooth UX
             await new Promise(resolve => setTimeout(resolve, 500));
 
+            // Start Realtime Listeners if logged in
+            if (APP_DATA.currentUser) {
+                DataManager.initRealtimeListeners();
+                Auth.startOnlineHeartbeat();
+            }
+
+            // Initialize Router
+            Router.init();
+
             this.hideLoader();
             this.setupApp();
         } catch (error) {
@@ -134,32 +143,64 @@ class App {
             });
         }
 
-        // Handle page visibility for online status
-        document.addEventListener('visibilitychange', async () => {
-            if (APP_DATA.currentUser && typeof FirebaseDB !== 'undefined') {
-                if (document.visibilityState === 'hidden') {
-                    // User is leaving
-                    await FirebaseDB.updateUser(APP_DATA.currentUser.id, {
-                        lastActivity: new Date().toISOString()
-                    });
-                } else {
-                    // User is back
-                    await FirebaseDB.updateUser(APP_DATA.currentUser.id, {
-                        isOnline: true,
-                        lastActivity: new Date().toISOString()
-                    });
-                }
+        // Real-time Updates Listeners
+        window.addEventListener('users-updated', () => {
+            const current = Router.currentPage;
+            // Recarregar páginas que dependem de lista de usuários
+            if (current === 'members' || current === 'requests' || current === 'admin') {
+                Router.navigate(current);
             }
         });
 
-        // Handle before unload
-        window.addEventListener('beforeunload', () => {
-            if (APP_DATA.currentUser && typeof FirebaseDB !== 'undefined') {
-                // Mark as offline (using sendBeacon for reliability)
-                const data = JSON.stringify({ isOnline: false, lastActivity: new Date().toISOString() });
-                navigator.sendBeacon && navigator.sendBeacon('/api/offline', data);
+        window.addEventListener('transactions-updated', () => {
+            const current = Router.currentPage;
+            // Atualizar saldo no topo
+            if (window.Components && window.Components.renderTopbarUser) {
+                window.Components.renderTopbarUser();
+            }
+            // Recarregar página do banco
+            if (current === 'bank') {
+                Router.navigate(current);
             }
         });
+
+        window.addEventListener('messages-updated', () => {
+            if (Router.currentPage === 'chat') {
+                if (window.Pages && window.Pages.refreshChat) {
+                    window.Pages.refreshChat();
+                } else {
+                    Router.navigate('chat');
+                }
+            }
+        });
+    }
+
+// Handle page visibility for online status
+document.addEventListener('visibilitychange', async () => {
+    if (APP_DATA.currentUser && typeof FirebaseDB !== 'undefined') {
+        if (document.visibilityState === 'hidden') {
+            // User is leaving
+            await FirebaseDB.updateUser(APP_DATA.currentUser.id, {
+                lastActivity: new Date().toISOString()
+            });
+        } else {
+            // User is back
+            await FirebaseDB.updateUser(APP_DATA.currentUser.id, {
+                isOnline: true,
+                lastActivity: new Date().toISOString()
+            });
+        }
+    }
+});
+
+// Handle before unload
+window.addEventListener('beforeunload', () => {
+    if (APP_DATA.currentUser && typeof FirebaseDB !== 'undefined') {
+        // Mark as offline (using sendBeacon for reliability)
+        const data = JSON.stringify({ isOnline: false, lastActivity: new Date().toISOString() });
+        navigator.sendBeacon && navigator.sendBeacon('/api/offline', data);
+    }
+});
     }
 }
 

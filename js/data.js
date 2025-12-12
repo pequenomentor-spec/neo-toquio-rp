@@ -406,10 +406,16 @@ const Auth = {
         // Iniciar heartbeat para manter status online
         this.startOnlineHeartbeat();
 
+        // Iniciar sync em tempo real
+        DataManager.initRealtimeListeners();
+
         return { success: true, user };
     },
 
     async logout() {
+        // Parar sync
+        DataManager.stopRealtimeListeners();
+
         if (APP_DATA.currentUser) {
             const user = APP_DATA.users.find(u => u.id === APP_DATA.currentUser.id);
             if (user) {
@@ -628,7 +634,91 @@ const DataManager = {
         }
     },
 
+    // ====== REAL-TIME SYNC ======
+    activeListeners: [],
+
+    initRealtimeListeners() {
+        if (typeof FirebaseDB === 'undefined' || !FirebaseDB.initialized) return;
+
+        // Limpar anteriores
+        this.stopRealtimeListeners();
+        console.log('Iniciando listeners em tempo real...');
+
+        // 1. Escutar Usuários (Admin + Online Status)
+        const unsubUsers = FirebaseDB.listenToCollection(FirebaseDB.COLLECTIONS.USERS, (users, changes) => {
+            users.forEach(remoteUser => {
+                const localIdx = APP_DATA.users.findIndex(u => u.id === remoteUser.id);
+                if (localIdx >= 0) {
+                    // Atualizar existente
+                    Object.assign(APP_DATA.users[localIdx], remoteUser);
+
+                    // Se for eu, atualizar currentUser e UI
+                    if (APP_DATA.currentUser && APP_DATA.currentUser.id === remoteUser.id) {
+                        Object.assign(APP_DATA.currentUser, remoteUser);
+                        if (window.Components && window.Components.renderTopbarUser) {
+                            window.Components.renderTopbarUser();
+                        }
+                    }
+                } else {
+                    // Novo user
+                    APP_DATA.users.push(remoteUser);
+                    // Notificar Admin
+                    if (Auth.isAdmin() && window.Utils) {
+                        window.Utils.showToast(`Novo jogador registrado: ${remoteUser.avakinName}`, 'info');
+                    }
+                }
+            });
+
+            // Disparar evento de atualização
+            window.dispatchEvent(new CustomEvent('users-updated'));
+        });
+        this.activeListeners.push(unsubUsers);
+
+        // 2. Escutar Transações (PIX e Saldo)
+        const unsubTrans = FirebaseDB.listenToCollection(FirebaseDB.COLLECTIONS.TRANSACTIONS, (transactions, changes) => {
+            APP_DATA.pixTransactions = transactions;
+
+            // Notificar recebimento de PIX
+            if (changes && APP_DATA.currentUser) {
+                changes.forEach(change => {
+                    if (change.type === 'added') {
+                        const trans = change.doc.data();
+                        if (trans.toId === APP_DATA.currentUser.id && trans.fromId !== APP_DATA.currentUser.id) {
+                            if (window.Utils) window.Utils.showToast(`Recebeu PIX de ${trans.fromName}: M$ ${trans.amount}`, 'success');
+                        }
+                    }
+                });
+            }
+            window.dispatchEvent(new CustomEvent('transactions-updated'));
+        });
+        this.activeListeners.push(unsubTrans);
+
+        // 3. Escutar Mensagens (Chat)
+        if (APP_DATA.currentUser) {
+            const unsubMsg = FirebaseDB.listenToCollection(FirebaseDB.COLLECTIONS.MESSAGES, (msgs) => {
+                // Mesclar mensagens mantendo histórico local se for maior que o recebido
+                // Para simplificar: substituir e confiar no servidor para as últimas
+                APP_DATA.messages = msgs;
+                window.dispatchEvent(new CustomEvent('messages-updated'));
+            });
+            this.activeListeners.push(unsubMsg);
+        }
+
+        // 4. Escutar Feed (Posts)
+        const unsubPosts = FirebaseDB.listenToCollection('posts', (posts) => {
+            APP_DATA.posts = posts; // Assumindo que criaremos APP_DATA.posts
+            window.dispatchEvent(new CustomEvent('posts-updated'));
+        });
+        this.activeListeners.push(unsubPosts);
+    },
+
+    stopRealtimeListeners() {
+        this.activeListeners.forEach(unsub => unsub());
+        this.activeListeners = [];
+    },
+
     reset() {
+        this.stopRealtimeListeners();
         localStorage.removeItem('mtp_rp_data');
         localStorage.removeItem('ntq_current_user');
         location.reload();

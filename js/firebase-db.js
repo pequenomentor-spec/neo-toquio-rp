@@ -17,7 +17,9 @@ const FirebaseDB = {
         TRANSACTIONS: 'transactions',
         ACTIVITY_LOG: 'activityLog',
         MAPS: 'maps',
-        SALE_OFFERS: 'saleOffers'
+        SALE_OFFERS: 'saleOffers',
+        POSTS: 'posts',
+        GLOBAL_CHAT: 'globalChat'
     },
 
     // Estado de inicialização
@@ -391,10 +393,63 @@ const FirebaseDB = {
     // ============================================
     // SALVAR DADOS (compatibilidade)
     // ============================================
-    async save() {
+    save() {
         // Esta função é chamada pelo código legado
         // Implementar sync específico se necessário
         console.log('FirebaseDB: save() called - data is auto-synced');
+    },
+
+    // ============================================
+    // REAL-TIME LISTENERS
+    // ============================================
+
+    /**
+     * Escutar atualizações em tempo real de uma coleção
+     * @param {string} collectionName Nome da coleção
+     * @param {function} callback Função a ser executada com os dados (array)
+     * @param {object} filters Filtros opcionais { field, operator, value }
+     * @returns {function} Função para parar de escutar (unsubscribe)
+     */
+    listenToCollection(collectionName, callback, filters = []) {
+        if (!this.db) return () => { };
+
+        let query = this.db.collection(collectionName);
+
+        // Aplicar filtros se houver
+        if (filters && filters.length > 0) {
+            filters.forEach(f => {
+                query = query.where(f.field, f.operator, f.value);
+            });
+        }
+
+        // Ordenação e limites
+        if (collectionName === this.COLLECTIONS.MESSAGES || collectionName === this.COLLECTIONS.GLOBAL_CHAT) {
+            query = query.orderBy('createdAt', 'asc').limitToLast(50);
+        } else if (collectionName === this.COLLECTIONS.TRANSACTIONS || collectionName === this.COLLECTIONS.NEWS || collectionName === this.COLLECTIONS.POSTS) {
+            query = query.orderBy('createdAt', 'desc').limit(20);
+        }
+
+        return query.onSnapshot((snapshot) => {
+            const data = [];
+            snapshot.forEach((doc) => {
+                data.push(doc.data());
+            });
+            callback(data, snapshot.docChanges());
+        }, (error) => {
+            console.error(`Erro ao escutar coleção ${collectionName}:`, error);
+        });
+    },
+
+    listenToDocument(collectionName, docId, callback) {
+        if (!this.db) return () => { };
+
+        return this.db.collection(collectionName).doc(docId).onSnapshot((doc) => {
+            if (doc.exists) {
+                callback(doc.data());
+            }
+        }, (error) => {
+            console.error(`Erro ao escutar documento ${collectionName}/${docId}:`, error);
+        });
     }
 };
 
