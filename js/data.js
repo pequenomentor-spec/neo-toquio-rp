@@ -488,7 +488,7 @@ const Auth = {
             characterHistory: data.characterHistory,
             password: data.password,
             role: 'member',
-            status: APP_DATA.settings.requireApproval ? 'pending' : 'approved',
+            status: 'approved', // Aprovação automática solicitada pelo admin
             avatar: null,
             faction: null,
             job: null,
@@ -521,9 +521,7 @@ const Auth = {
 
         return {
             success: true,
-            message: APP_DATA.settings.requireApproval ?
-                'Cadastro enviado! Aguarde aprovação da administração.' :
-                'Cadastro realizado! Você já pode fazer login.'
+            message: 'Cadastro realizado! Você já pode fazer login.'
         };
     }
 };
