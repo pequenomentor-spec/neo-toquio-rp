@@ -1,0 +1,346 @@
+/* ============================================
+   NEO TOQUIO RP - Responsive Styles
+   ============================================ */
+
+/* Tablet - 1024px */
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .dashboard-main {
+        grid-template-columns: 1fr;
+    }
+
+    .bank-header {
+        grid-template-columns: 1fr;
+    }
+
+    .map-container {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+
+    .map-sidebar {
+        order: 2;
+        max-height: 300px;
+    }
+
+    .map-view {
+        order: 1;
+        min-height: 400px;
+    }
+
+    .rules-container {
+        grid-template-columns: 1fr;
+    }
+
+    .rules-nav {
+        position: static;
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+    }
+
+    .rules-nav-item {
+        flex: 1;
+        min-width: 140px;
+        justify-content: center;
+    }
+}
+
+/* Mobile Large - 768px */
+@media (max-width: 768px) {
+    :root {
+        --sidebar-width: 280px;
+        --topbar-height: 60px;
+    }
+
+    .sidebar {
+        transform: translateX(-100%);
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        margin-left: 0;
+    }
+
+    .sidebar-toggle {
+        display: flex;
+    }
+
+    .topbar-brand {
+        display: flex;
+    }
+
+    .topbar-actions {
+        margin-left: auto;
+    }
+
+    .user-profile-info {
+        display: none;
+    }
+
+    .page-content {
+        padding: var(--space-4);
+    }
+
+    .page-title {
+        font-size: var(--text-2xl);
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .stat-card {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .stat-info h4 {
+        font-size: var(--text-xl);
+    }
+
+    .citizens-grid,
+    .factions-grid,
+    .travel-grid,
+    .admin-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-header {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .profile-stats {
+        justify-content: center;
+    }
+
+    .job-card {
+        flex-direction: column;
+    }
+
+    .job-actions {
+        flex-direction: row;
+        width: 100%;
+    }
+
+    .job-actions .btn {
+        flex: 1;
+    }
+
+    .chat-panel {
+        width: 100%;
+    }
+
+    .notifications-panel {
+        left: var(--space-4);
+        right: var(--space-4);
+        width: auto;
+    }
+
+    /* Mobile Search */
+    .mobile-search {
+        display: block;
+        padding: var(--space-4);
+        padding-top: 0;
+    }
+
+    .mobile-search input {
+        width: 100%;
+        padding: var(--space-3) var(--space-4);
+        background: var(--dark-800);
+        border: 1px solid var(--dark-600);
+        border-radius: var(--radius-lg);
+        color: var(--dark-100);
+    }
+}
+
+/* Mobile Small - 480px */
+@media (max-width: 480px) {
+    html {
+        font-size: 14px;
+    }
+
+    .page-title {
+        font-size: var(--text-xl);
+        flex-wrap: wrap;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-card {
+        flex-direction: row;
+        text-align: left;
+    }
+
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+    }
+
+    .stat-info h4 {
+        font-size: var(--text-lg);
+    }
+
+    .news-card {
+        flex-direction: column;
+    }
+
+    .news-image {
+        width: 100%;
+        height: 120px;
+    }
+
+    .bank-card-visual {
+        min-height: 180px;
+        padding: var(--space-4);
+    }
+
+    .bank-card-balance {
+        font-size: var(--text-3xl);
+    }
+
+    .inventory-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .item-icon {
+        width: 60px;
+        height: 60px;
+        font-size: var(--text-2xl);
+    }
+
+    .tabs {
+        flex-wrap: wrap;
+    }
+
+    .tab {
+        min-width: calc(50% - var(--space-1));
+    }
+
+    .modal {
+        margin: var(--space-4);
+        max-height: calc(100vh - var(--space-8));
+    }
+
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding: var(--space-4);
+    }
+
+    .modal-footer {
+        flex-direction: column;
+    }
+
+    .modal-footer .btn {
+        width: 100%;
+    }
+
+    .page-actions {
+        flex-direction: column;
+    }
+
+    .page-actions .btn {
+        width: 100%;
+    }
+
+    .faction-card .faction-content {
+        padding-top: var(--space-8);
+    }
+
+    .faction-logo {
+        width: 56px;
+        height: 56px;
+        bottom: -25px;
+    }
+}
+
+/* Mobile Overlay quando sidebar está aberta */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: calc(var(--z-sticky) - 1);
+}
+
+@media (max-width: 768px) {
+    .sidebar-overlay.active {
+        display: block;
+    }
+}
+
+/* Touch Friendly */
+@media (hover: none) {
+
+    .nav-item:hover,
+    .btn:hover,
+    .card:hover {
+        transform: none;
+    }
+
+    .nav-item:active,
+    .btn:active {
+        transform: scale(0.98);
+    }
+}
+
+/* Landscape Mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+    .sidebar {
+        overflow-y: auto;
+    }
+
+    .sidebar-header {
+        padding: var(--space-3);
+    }
+
+    .sidebar-logo {
+        width: 36px;
+        height: 36px;
+    }
+
+    .nav-item {
+        padding: var(--space-2) var(--space-3);
+    }
+}
+
+/* Print Styles */
+@media print {
+
+    .sidebar,
+    .topbar,
+    .chat-panel,
+    .notifications-panel,
+    .btn,
+    .modal-overlay {
+        display: none !important;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+    }
+
+    .page-content {
+        padding: 0;
+    }
+
+    body {
+        background: white;
+        color: black;
+    }
+
+    .card {
+        border: 1px solid #ccc;
+        box-shadow: none;
+    }
+}

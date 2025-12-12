@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo Toquio RP - Roleplay Cyberpunk no Avakin Life</title>
+    <meta name="description"
+        content="Neo Toquio RP - O maior servidor de roleplay estilo Cyberpunk no Avakin Life. Cadastre-se e viva sua história!">
+    <link rel="icon" type="image/png" href="img/logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/pages.css">
+    <link rel="stylesheet" href="css/animations.css">
+    <link rel="stylesheet" href="css/responsive.css">
+</head>
+
+<body>
+    <!-- Loader -->
+    <div id="app-loader" class="loader">
+        <div class="loader-content">
+            <img src="img/logo.png" alt="Neo Toquio" class="loader-logo">
+            <div class="loader-bar">
+                <div class="loader-progress"></div>
+            </div>
+            <p class="loader-text">Conectando a Neo Toquio...</p>
+        </div>
+    </div>
+
+    <!-- App Container -->
+    <div id="app" class="app-container">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <img src="img/logo.png" alt="Neo Toquio" class="sidebar-logo">
+                <span class="sidebar-title">Neo Toquio RP</span>
+            </div>
+            <nav class="sidebar-nav" id="main-nav"></nav>
+            <div class="sidebar-footer">
+                <div class="user-mini-profile" id="user-mini-profile"></div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="topbar">
+                <button class="sidebar-toggle" id="sidebar-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="topbar-brand">
+                    <img src="img/logo.png" alt="Neo Toquio" class="topbar-logo">
+                    <span>Neo Toquio RP</span>
+                </div>
+                <div class="topbar-actions">
+                    <div class="user-profile" id="user-profile"></div>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div class="page-content" id="main-content"></div>
+        </main>
+    </div>
+
+    <!-- Modals Container -->
+    <div id="modals-container"></div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="js/data.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/pages.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>
