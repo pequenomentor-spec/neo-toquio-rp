@@ -89,6 +89,7 @@ const FirebaseDB = {
             friendCode: 'NTQ-0000-0000',
             characterHistory: 'Administrador supremo de Neo Toquio...',
             role: 'admin',
+            password: 'admin123',
             status: 'approved',
             avatar: null,
             faction: null,
