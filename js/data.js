@@ -54,14 +54,14 @@ const APP_DATA = {
     users: [
         {
             id: 'admin001',
-            avakinName: 'Admin NTQ',
+            avakinName: 'NeoToquioAdmin',
             instagram: '@neotoquiorp',
             friendCode: 'NTQ-0000-0000',
-            characterHistory: 'Administrador supremo de Neo Toquio...',
+            characterHistory: 'Administrador supremo de Neo Toquio. Responsável pela gestão do servidor e manutenção da ordem.',
             role: 'admin',
             status: 'approved',
             avatar: null,
-            password: 'admin123',
+            password: 'NTQ@2024Adm!',
             faction: null,
             job: null,
             balance: 999999,
@@ -635,14 +635,14 @@ const DataManager = {
             // GARANTIR QUE O ADMIN PADRÃO SEMPRE EXISTA
             const defaultAdmin = {
                 id: 'admin001',
-                avakinName: 'Admin NTQ',
+                avakinName: 'NeoToquioAdmin',
                 instagram: '@neotoquiorp',
                 friendCode: 'NTQ-0000-0000',
-                characterHistory: 'Administrador supremo de Neo Toquio...',
+                characterHistory: 'Administrador supremo de Neo Toquio. Responsável pela gestão do servidor e manutenção da ordem.',
                 role: 'admin',
                 status: 'approved',
                 avatar: null,
-                password: 'admin123',
+                password: 'NTQ@2024Adm!',
                 faction: null,
                 job: null,
                 balance: 999999,
@@ -661,7 +661,7 @@ const DataManager = {
             if (adminIndex >= 0) {
                 // Admin existe, garantir que a senha está correta
                 if (!APP_DATA.users[adminIndex].password || APP_DATA.users[adminIndex].password === '') {
-                    APP_DATA.users[adminIndex].password = 'admin123';
+                    APP_DATA.users[adminIndex].password = 'NTQ@2024Adm!';
                 }
                 // Garantir role admin
                 APP_DATA.users[adminIndex].role = 'admin';
