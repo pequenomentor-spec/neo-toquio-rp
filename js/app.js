@@ -16,15 +16,48 @@ class App {
         }
     }
 
-    start() {
+    async start() {
         // Show loader
         this.showLoader();
+        this.updateLoaderText('Conectando ao servidor...');
 
-        // Initialize after short delay (simulate loading)
-        setTimeout(() => {
+        try {
+            // Initialize Firebase and load data
+            if (typeof FirebaseDB !== 'undefined') {
+                this.updateLoaderText('Carregando dados...');
+                await FirebaseDB.init();
+                console.log('Firebase DB loaded successfully');
+            } else {
+                // Fallback to localStorage
+                this.updateLoaderText('Modo offline...');
+                DataManager.load();
+            }
+
+            this.updateLoaderText('Preparando interface...');
+
+            // Small delay for smooth UX
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             this.hideLoader();
             this.setupApp();
-        }, 1200);
+        } catch (error) {
+            console.error('Error starting app:', error);
+            this.updateLoaderText('Erro de conexão. Usando modo offline...');
+
+            // Fallback to localStorage
+            DataManager.load();
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            this.hideLoader();
+            this.setupApp();
+        }
+    }
+
+    updateLoaderText(text) {
+        const loaderText = document.querySelector('.loader-text');
+        if (loaderText) {
+            loaderText.textContent = text;
+        }
     }
 
     showLoader() {
@@ -57,6 +90,11 @@ class App {
 
         // Setup global event listeners
         this.setupEventListeners();
+
+        // Start online heartbeat if logged in
+        if (APP_DATA.currentUser) {
+            Auth.startOnlineHeartbeat();
+        }
 
         console.log('Neo Toquio RP initialized!');
     }
@@ -95,6 +133,33 @@ class App {
                 Utils.showToast('Nenhuma notificação nova', 'info');
             });
         }
+
+        // Handle page visibility for online status
+        document.addEventListener('visibilitychange', async () => {
+            if (APP_DATA.currentUser && typeof FirebaseDB !== 'undefined') {
+                if (document.visibilityState === 'hidden') {
+                    // User is leaving
+                    await FirebaseDB.updateUser(APP_DATA.currentUser.id, {
+                        lastActivity: new Date().toISOString()
+                    });
+                } else {
+                    // User is back
+                    await FirebaseDB.updateUser(APP_DATA.currentUser.id, {
+                        isOnline: true,
+                        lastActivity: new Date().toISOString()
+                    });
+                }
+            }
+        });
+
+        // Handle before unload
+        window.addEventListener('beforeunload', () => {
+            if (APP_DATA.currentUser && typeof FirebaseDB !== 'undefined') {
+                // Mark as offline (using sendBeacon for reliability)
+                const data = JSON.stringify({ isOnline: false, lastActivity: new Date().toISOString() });
+                navigator.sendBeacon && navigator.sendBeacon('/api/offline', data);
+            }
+        });
     }
 }
 

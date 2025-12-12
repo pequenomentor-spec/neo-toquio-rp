@@ -362,7 +362,7 @@ const Auth = {
         return APP_DATA.currentUser?.faction !== null;
     },
 
-    login(avakinName, password) {
+    async login(avakinName, password) {
         const user = APP_DATA.users.find(u =>
             u.avakinName.toLowerCase() === avakinName.toLowerCase() &&
             u.password === password
@@ -381,9 +381,26 @@ const Auth = {
         }
 
         user.lastLogin = new Date().toISOString();
-        user.isOnline = true; // Marcar como online
+        user.isOnline = true;
         user.lastActivity = new Date().toISOString();
         APP_DATA.currentUser = user;
+
+        // Salvar sessão localmente
+        localStorage.setItem('ntq_current_user', user.id);
+
+        // Atualizar no Firebase
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            try {
+                await FirebaseDB.updateUser(user.id, {
+                    lastLogin: user.lastLogin,
+                    isOnline: true,
+                    lastActivity: user.lastActivity
+                });
+            } catch (e) {
+                console.error('Error updating user login in Firebase:', e);
+            }
+        }
+
         DataManager.save();
 
         // Iniciar heartbeat para manter status online
@@ -392,16 +409,29 @@ const Auth = {
         return { success: true, user };
     },
 
-    logout() {
+    async logout() {
         if (APP_DATA.currentUser) {
             const user = APP_DATA.users.find(u => u.id === APP_DATA.currentUser.id);
             if (user) {
-                user.isOnline = false; // Marcar como offline
+                user.isOnline = false;
                 user.lastActivity = new Date().toISOString();
+
+                // Atualizar no Firebase
+                if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+                    try {
+                        await FirebaseDB.updateUser(user.id, {
+                            isOnline: false,
+                            lastActivity: user.lastActivity
+                        });
+                    } catch (e) {
+                        console.error('Error updating user logout in Firebase:', e);
+                    }
+                }
             }
         }
         this.stopOnlineHeartbeat();
         APP_DATA.currentUser = null;
+        localStorage.removeItem('ntq_current_user');
         DataManager.save();
         Router.navigate('home');
     },
@@ -444,7 +474,7 @@ const Auth = {
         return false;
     },
 
-    register(data) {
+    async register(data) {
         if (APP_DATA.users.some(u => u.avakinName.toLowerCase() === data.avakinName.toLowerCase())) {
             return { success: false, error: 'Este nome do Avakin já está cadastrado' };
         }
@@ -452,6 +482,7 @@ const Auth = {
         const newUser = {
             id: 'user' + Date.now(),
             avakinName: data.avakinName,
+            email: data.email || '',
             instagram: data.instagram,
             friendCode: data.friendCode,
             characterHistory: data.characterHistory,
@@ -462,6 +493,12 @@ const Auth = {
             faction: null,
             job: null,
             balance: 15000,
+            bank: {
+                accountNumber: 'NTQ-' + Math.floor(1000 + Math.random() * 9000),
+                creditLimit: 1000,
+                creditUsed: 0,
+                pixKey: data.avakinName.toLowerCase().replace(/\s/g, '') + '@ntq'
+            },
             createdAt: new Date().toISOString(),
             lastLogin: null,
             isOnline: false,
@@ -469,6 +506,16 @@ const Auth = {
         };
 
         APP_DATA.users.push(newUser);
+
+        // Salvar no Firebase se disponível
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            try {
+                await FirebaseDB.createUser(newUser);
+            } catch (e) {
+                console.error('Error creating user in Firebase:', e);
+            }
+        }
+
         DataManager.save();
         DataManager.log('Novo cadastro', newUser.avakinName);
 
@@ -485,8 +532,12 @@ const Auth = {
 // Data Manager
 // ============================================
 const DataManager = {
+    // Flag para usar Firebase
+    useFirebase: false,
+
     save() {
         try {
+            // Salva localmente como backup
             const dataToSave = {
                 users: APP_DATA.users,
                 factions: APP_DATA.factions,
@@ -501,7 +552,6 @@ const DataManager = {
                 activityLog: APP_DATA.activityLog,
                 settings: APP_DATA.settings,
                 currentUserId: APP_DATA.currentUser?.id || null,
-                // Dados adicionais persistentes
                 roles: APP_DATA.roles,
                 pixTransactions: APP_DATA.pixTransactions,
                 maps: APP_DATA.maps,
@@ -511,7 +561,31 @@ const DataManager = {
             };
             localStorage.setItem('mtp_rp_data', JSON.stringify(dataToSave));
         } catch (e) {
-            console.error('Error saving data:', e);
+            console.error('Error saving data locally:', e);
+        }
+    },
+
+    // Salvar usuário específico no Firebase
+    async saveUser(user) {
+        this.save(); // Backup local
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            try {
+                await FirebaseDB.updateUser(user.id, user);
+            } catch (e) {
+                console.error('Error saving user to Firebase:', e);
+            }
+        }
+    },
+
+    // Salvar documento no Firebase
+    async saveDocument(collection, doc) {
+        this.save(); // Backup local
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            try {
+                await FirebaseDB.addDocument(collection, doc);
+            } catch (e) {
+                console.error('Error saving document to Firebase:', e);
+            }
         }
     },
 
@@ -521,8 +595,6 @@ const DataManager = {
             if (saved) {
                 const data = JSON.parse(saved);
                 APP_DATA.users = data.users || APP_DATA.users;
-                // SEMPRE usar as facções do código-fonte (TDP, NVC, PM, EB)
-                // Não carregar facções antigas do localStorage
                 APP_DATA.jobs = data.jobs || APP_DATA.jobs;
                 APP_DATA.inventory = data.inventory || APP_DATA.inventory;
                 APP_DATA.tradeOffers = data.tradeOffers || APP_DATA.tradeOffers;
@@ -533,7 +605,6 @@ const DataManager = {
                 APP_DATA.notifications = data.notifications || APP_DATA.notifications;
                 APP_DATA.activityLog = data.activityLog || APP_DATA.activityLog;
                 APP_DATA.settings = data.settings || APP_DATA.settings;
-                // Dados adicionais persistentes
                 APP_DATA.roles = data.roles || APP_DATA.roles;
                 APP_DATA.pixTransactions = data.pixTransactions || APP_DATA.pixTransactions;
                 APP_DATA.maps = data.maps || APP_DATA.maps;
@@ -545,12 +616,12 @@ const DataManager = {
                     APP_DATA.currentUser = APP_DATA.users.find(u => u.id === data.currentUserId) || null;
                 }
 
-                // Migração: Remover facções antigas (CDM, Zevelli, COE) dos usuários
+                // Migração: Remover facções antigas
                 const oldFactionIds = ['cdm', 'zevelli', 'coe'];
                 const validFactionIds = APP_DATA.factions.map(f => f.id);
                 APP_DATA.users.forEach(user => {
                     if (user.faction && (oldFactionIds.includes(user.faction.id) || !validFactionIds.includes(user.faction.id))) {
-                        user.faction = null; // Remove facção antiga inválida
+                        user.faction = null;
                     }
                 });
             }
@@ -561,23 +632,36 @@ const DataManager = {
 
     reset() {
         localStorage.removeItem('mtp_rp_data');
+        localStorage.removeItem('ntq_current_user');
         location.reload();
     },
 
-    log(action, details) {
-        APP_DATA.activityLog.unshift({
+    async log(action, details) {
+        const logEntry = {
             id: 'log' + Date.now(),
             action,
             details,
             userId: APP_DATA.currentUser?.id,
             userName: APP_DATA.currentUser?.avakinName || 'Sistema',
             timestamp: new Date().toISOString()
-        });
+        };
+
+        APP_DATA.activityLog.unshift(logEntry);
 
         if (APP_DATA.activityLog.length > 200) {
             APP_DATA.activityLog = APP_DATA.activityLog.slice(0, 200);
         }
-        this.save();
+
+        this.save(); // Backup local
+
+        // Salvar no Firebase
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            try {
+                await FirebaseDB.log(action, details);
+            } catch (e) {
+                console.error('Error logging to Firebase:', e);
+            }
+        }
     },
 
     getPendingRequestsCount() {
@@ -650,7 +734,7 @@ const DataManager = {
     },
 
     // Submeter solicitação (facção ou emprego)
-    submitRequest(type, targetId, message) {
+    async submitRequest(type, targetId, message) {
         const user = APP_DATA.currentUser;
         if (!user) return { success: false, error: 'Você precisa estar logado' };
 
@@ -687,6 +771,11 @@ const DataManager = {
 
         APP_DATA.requests.push(request);
         this.save();
+
+        // Firebase sync
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            await FirebaseDB.addDocument(FirebaseDB.COLLECTIONS.REQUESTS, request);
+        }
 
         let targetName = '';
         if (type === 'faction') targetName = this.getFaction(targetId)?.name;
@@ -737,23 +826,35 @@ const DataManager = {
         return { success: true };
     },
 
-    approveUser(userId) {
+    async approveUser(userId) {
         const user = this.getUser(userId);
         if (!user) return { success: false, error: 'Usuário não encontrado' };
 
         user.status = 'approved';
         this.save();
+
+        // Firebase sync
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            await FirebaseDB.updateUser(userId, { status: 'approved' });
+        }
+
         this.log('Cadastro aprovado', user.avakinName);
         return { success: true };
     },
 
-    rejectUser(userId, reason = '') {
+    async rejectUser(userId, reason = '') {
         const user = this.getUser(userId);
         if (!user) return { success: false, error: 'Usuário não encontrado' };
 
         user.status = 'rejected';
         user.rejectionReason = reason;
         this.save();
+
+        // Firebase sync
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            await FirebaseDB.updateUser(userId, { status: 'rejected', rejectionReason: reason });
+        }
+
         this.log('Cadastro rejeitado', user.avakinName);
         return { success: true };
     },
@@ -788,7 +889,7 @@ const DataManager = {
     },
 
     // ====== NOTÍCIAS ======
-    addNews(title, content, category = 'Geral') {
+    async addNews(title, content, category = 'Geral') {
         const news = {
             id: 'news' + Date.now(),
             title,
@@ -799,18 +900,29 @@ const DataManager = {
         };
         APP_DATA.news.unshift(news);
         this.save();
+
+        // Firebase sync
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            await FirebaseDB.addDocument(FirebaseDB.COLLECTIONS.NEWS, news);
+        }
+
         this.log('Notícia publicada', title);
         return news;
     },
 
-    deleteNews(newsId) {
+    async deleteNews(newsId) {
         APP_DATA.news = APP_DATA.news.filter(n => n.id !== newsId);
         this.save();
+
+        // Firebase sync
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            await FirebaseDB.deleteDocument(FirebaseDB.COLLECTIONS.NEWS, newsId);
+        }
     },
 
     // ====== SISTEMA DE INVENTÁRIO ======
 
-    createItem(templateId, isIllegal = false) {
+    async createItem(templateId, isIllegal = false) {
         const user = APP_DATA.currentUser;
         if (!user) return { success: false, error: 'Você precisa estar logado' };
 
@@ -840,12 +952,18 @@ const DataManager = {
 
         APP_DATA.inventory.push(newItem);
         this.save();
+
+        // Firebase sync
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            await FirebaseDB.addDocument(FirebaseDB.COLLECTIONS.INVENTORY, newItem);
+        }
+
         this.log('Item criado', `${template.name} (${isIllegal ? 'Ilegal' : 'Legal'})`);
 
         return { success: true, item: newItem };
     },
 
-    putForSale(itemId, price) {
+    async putForSale(itemId, price) {
         const item = APP_DATA.inventory.find(i => i.id === itemId);
         if (!item) return { success: false, error: 'Item não encontrado' };
 
@@ -856,12 +974,21 @@ const DataManager = {
         item.forSale = true;
         item.salePrice = price;
         this.save();
+
+        // Firebase sync
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            await FirebaseDB.updateDocument(FirebaseDB.COLLECTIONS.INVENTORY, itemId, {
+                forSale: true,
+                salePrice: price
+            });
+        }
+
         this.log('Item à venda', `${item.name} por M$ ${price}`);
 
         return { success: true };
     },
 
-    cancelSale(itemId) {
+    async cancelSale(itemId) {
         const item = APP_DATA.inventory.find(i => i.id === itemId);
         if (!item) return { success: false, error: 'Item não encontrado' };
 
@@ -873,10 +1000,18 @@ const DataManager = {
         item.salePrice = null;
         this.save();
 
+        // Firebase sync
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            await FirebaseDB.updateDocument(FirebaseDB.COLLECTIONS.INVENTORY, itemId, {
+                forSale: false,
+                salePrice: null
+            });
+        }
+
         return { success: true };
     },
 
-    buyItem(itemId) {
+    async buyItem(itemId) {
         const buyer = APP_DATA.currentUser;
         if (!buyer) return { success: false, error: 'Você precisa estar logado' };
 
@@ -902,6 +1037,22 @@ const DataManager = {
         item.salePrice = null;
 
         this.save();
+
+        // Firebase sync
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            // Atualizar item
+            await FirebaseDB.updateDocument(FirebaseDB.COLLECTIONS.INVENTORY, itemId, {
+                ownerId: buyer.id,
+                ownerName: buyer.avakinName,
+                forSale: false,
+                salePrice: null
+            });
+
+            // Atualizar saldos
+            await FirebaseDB.updateUser(buyer.id, { balance: buyer.balance });
+            if (seller) await FirebaseDB.updateUser(seller.id, { balance: seller.balance });
+        }
+
         this.log('Item vendido', `${item.name}: ${oldOwner} → ${buyer.avakinName}`);
 
         return { success: true };
@@ -989,7 +1140,7 @@ const DataManager = {
     // ====== SISTEMA DE VENDA DIRETA (Player para Player) ======
 
     // Criar oferta de venda direta para um player específico
-    createSaleOffer(itemId, buyerId, price) {
+    async createSaleOffer(itemId, buyerId, price) {
         const seller = APP_DATA.currentUser;
         if (!seller) return { success: false, error: 'Você precisa estar logado' };
 
@@ -1030,13 +1181,19 @@ const DataManager = {
 
         APP_DATA.saleOffers.push(offer);
         this.save();
+
+        // Firebase sync
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            await FirebaseDB.addDocument(FirebaseDB.COLLECTIONS.SALE_OFFERS, offer);
+        }
+
         this.log('Oferta de venda', `${item.name} para ${buyer.avakinName} por ¥${price}`);
 
         return { success: true, message: `Oferta enviada para ${buyer.avakinName}!` };
     },
 
     // Aceitar oferta de venda
-    acceptSaleOffer(offerId) {
+    async acceptSaleOffer(offerId) {
         const buyer = APP_DATA.currentUser;
         if (!buyer) return { success: false, error: 'Você precisa estar logado' };
 
@@ -1080,6 +1237,28 @@ const DataManager = {
         offer.completedAt = new Date().toISOString();
 
         this.save();
+
+        // Firebase sync
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            // Atualizar oferta
+            await FirebaseDB.updateDocument(FirebaseDB.COLLECTIONS.SALE_OFFERS, offerId, {
+                status: 'accepted',
+                completedAt: offer.completedAt
+            });
+
+            // Atualizar item
+            await FirebaseDB.updateDocument(FirebaseDB.COLLECTIONS.INVENTORY, item.id, {
+                ownerId: buyer.id,
+                ownerName: buyer.avakinName,
+                forSale: false,
+                salePrice: null
+            });
+
+            // Atualizar saldos
+            await FirebaseDB.updateUser(buyer.id, { balance: buyer.balance });
+            if (seller) await FirebaseDB.updateUser(seller.id, { balance: seller.balance });
+        }
+
         this.log('Compra realizada', `${buyer.avakinName} comprou ${item.name} por ¥${offer.price}`);
 
         return { success: true, message: `Você comprou ${item.name} por ¥${offer.price}!` };
@@ -1240,7 +1419,7 @@ const DataManager = {
     },
 
     // Transferência PIX
-    sendPix(toPixKey, amount, description = '') {
+    async sendPix(toPixKey, amount, description = '') {
         const sender = APP_DATA.currentUser;
         if (!sender) return { success: false, error: 'Você precisa estar logado' };
 
@@ -1253,11 +1432,11 @@ const DataManager = {
         if (!receiver) return { success: false, error: 'Chave PIX não encontrada' };
         if (receiver.id === sender.id) return { success: false, error: 'Não pode enviar para si mesmo' };
 
-        // Efetuar transferência
+        // Efetuar transferência localmente
         sender.balance -= amount;
         receiver.balance += amount;
 
-        // Registrar transação
+        // Registrar transação localmente
         const transaction = {
             id: 'pix' + Date.now(),
             type: 'pix',
@@ -1271,7 +1450,23 @@ const DataManager = {
         };
         APP_DATA.pixTransactions.push(transaction);
 
+        // Salvar localmente
         this.save();
+
+        // Salvar no Firebase
+        if (typeof FirebaseDB !== 'undefined' && FirebaseDB.initialized) {
+            try {
+                // Atualizar saldos
+                await FirebaseDB.updateUser(sender.id, { balance: sender.balance });
+                await FirebaseDB.updateUser(receiver.id, { balance: receiver.balance });
+
+                // Salvar transação
+                await FirebaseDB.addDocument(FirebaseDB.COLLECTIONS.TRANSACTIONS, transaction);
+            } catch (e) {
+                console.error('Error syncing PIX to Firebase:', e);
+            }
+        }
+
         this.log('PIX enviado', `${sender.avakinName} → ${receiver.avakinName}: M$ ${amount}`);
 
         return { success: true, message: `PIX de M$ ${amount} enviado para ${receiver.avakinName}!` };

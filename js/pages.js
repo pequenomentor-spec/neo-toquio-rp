@@ -1795,9 +1795,9 @@ const Pages = {
         });
     },
 
-    submitFactionRequest(factionId) {
+    async submitFactionRequest(factionId) {
         const message = document.getElementById('apply-message').value;
-        const result = DataManager.submitRequest('faction', factionId, message);
+        const result = await DataManager.submitRequest('faction', factionId, message);
 
         if (result.success) {
             Utils.showToast(result.message, 'success');
@@ -1828,9 +1828,9 @@ const Pages = {
         });
     },
 
-    submitJobRequest(jobId) {
+    async submitJobRequest(jobId) {
         const message = document.getElementById('apply-message').value;
-        const result = DataManager.submitRequest('job', jobId, message);
+        const result = await DataManager.submitRequest('job', jobId, message);
 
         if (result.success) {
             Utils.showToast(result.message, 'success');
@@ -1985,8 +1985,8 @@ const Pages = {
     },
 
     // Inventory Functions
-    createItem(templateId, isIllegal) {
-        const result = DataManager.createItem(templateId, isIllegal);
+    async createItem(templateId, isIllegal) {
+        const result = await DataManager.createItem(templateId, isIllegal);
         if (result.success) {
             Utils.showToast(`Item "${result.item.name}" criado!`, 'success');
             Router.navigate('inventory');
@@ -2031,8 +2031,8 @@ const Pages = {
     },
 
     buyItem(itemId) {
-        Components.confirm('Confirma a compra deste item?', () => {
-            const result = DataManager.buyItem(itemId);
+        Components.confirm('Confirma a compra deste item?', async () => {
+            const result = await DataManager.buyItem(itemId);
             if (result.success) {
                 Utils.showToast('Item comprado!', 'success');
                 Router.navigate('inventory');
@@ -2145,7 +2145,7 @@ const Pages = {
     },
 
     // Enviar oferta de venda direta
-    submitDirectSell() {
+    async submitDirectSell() {
         const itemId = document.getElementById('sell-item-select').value;
         const buyerId = document.getElementById('sell-buyer-id').value;
         const price = document.getElementById('sell-price').value;
@@ -2163,7 +2163,7 @@ const Pages = {
             return;
         }
 
-        const result = DataManager.createSaleOffer(itemId, buyerId, price);
+        const result = await DataManager.createSaleOffer(itemId, buyerId, price);
         if (result.success) {
             Utils.showToast(result.message, 'success');
             Router.navigate('inventory');
@@ -2174,8 +2174,8 @@ const Pages = {
 
     // Aceitar oferta de compra
     acceptSaleOffer(offerId) {
-        Components.confirm('Confirma a compra deste item?', () => {
-            const result = DataManager.acceptSaleOffer(offerId);
+        Components.confirm('Confirma a compra deste item?', async () => {
+            const result = await DataManager.acceptSaleOffer(offerId);
             if (result.success) {
                 Utils.showToast(result.message, 'success');
                 Router.navigate('inventory');
@@ -2311,7 +2311,7 @@ const Pages = {
     },
 
     // Bank Functions
-    sendPix() {
+    async sendPix() {
         const pixKey = document.getElementById('pix-key').value.trim();
         const amount = document.getElementById('pix-amount').value;
         const desc = document.getElementById('pix-desc').value.trim();
@@ -2321,7 +2321,7 @@ const Pages = {
             return;
         }
 
-        const result = DataManager.sendPix(pixKey, amount, desc);
+        const result = await DataManager.sendPix(pixKey, amount, desc);
         if (result.success) {
             Utils.showToast(result.message, 'success');
             Router.navigate('bank');
@@ -2490,8 +2490,8 @@ const Pages = {
         Router.navigate('requests');
     },
 
-    approveUser(userId) {
-        DataManager.approveUser(userId);
+    async approveUser(userId) {
+        await DataManager.approveUser(userId);
         Utils.showToast('Cadastro aprovado!', 'success');
         Components.renderNavigation();
         Router.navigate('requests');
@@ -2515,9 +2515,9 @@ const Pages = {
         });
     },
 
-    confirmRejectUser(userId) {
+    async confirmRejectUser(userId) {
         const reason = document.getElementById('reject-reason').value;
-        DataManager.rejectUser(userId, reason);
+        await DataManager.rejectUser(userId, reason);
         Utils.showToast('Cadastro rejeitado', 'success');
         Components.closeAllModals();
         Router.navigate('requests');
@@ -3132,12 +3132,12 @@ const Pages = {
     // Page Initializers
     init: {
         login() {
-            document.getElementById('login-form')?.addEventListener('submit', (e) => {
+            document.getElementById('login-form')?.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const name = document.getElementById('login-name').value;
                 const password = document.getElementById('login-password').value;
 
-                const result = Auth.login(name, password);
+                const result = await Auth.login(name, password);
 
                 if (result.success) {
                     Utils.showToast('Login realizado!', 'success');
@@ -3153,7 +3153,7 @@ const Pages = {
         },
 
         register() {
-            document.getElementById('register-form')?.addEventListener('submit', (e) => {
+            document.getElementById('register-form')?.addEventListener('submit', async (e) => {
                 e.preventDefault();
 
                 const data = {
@@ -3177,7 +3177,7 @@ const Pages = {
                     return;
                 }
 
-                const result = Auth.register(data);
+                const result = await Auth.register(data);
 
                 if (result.success) {
                     Utils.showToast(result.message, 'success');
