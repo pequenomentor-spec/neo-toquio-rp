@@ -55,6 +55,7 @@ const APP_DATA = {
         {
             id: 'admin001',
             avakinName: 'NeoToquioAdmin',
+            email: 'admin@neotoquio.com',
             instagram: '@neotoquiorp',
             friendCode: 'NTQ-0000-0000',
             characterHistory: 'Administrador supremo de Neo Toquio. Responsável pela gestão do servidor e manutenção da ordem.',
@@ -73,7 +74,9 @@ const APP_DATA = {
                 pixKey: 'admin@ntq'
             },
             createdAt: '2024-01-01',
-            lastLogin: null
+            lastLogin: null,
+            isOnline: false,
+            lastActivity: null
         }
     ],
 
@@ -364,14 +367,16 @@ const Auth = {
         return APP_DATA.currentUser?.faction !== null;
     },
 
-    async login(avakinName, password) {
+    async login(emailOrName, password) {
+        // Buscar usuário por email OU nome do Avakin
         const user = APP_DATA.users.find(u =>
-            u.avakinName.toLowerCase() === avakinName.toLowerCase() &&
+            (u.email?.toLowerCase() === emailOrName.toLowerCase() ||
+                u.avakinName?.toLowerCase() === emailOrName.toLowerCase()) &&
             u.password === password
         );
 
         if (!user) {
-            return { success: false, error: 'Nome ou senha incorretos' };
+            return { success: false, error: 'Email/Nome ou senha incorretos' };
         }
 
         if (user.status === 'pending') {
@@ -483,6 +488,16 @@ const Auth = {
     },
 
     async register(data) {
+        // Validar email obrigatório
+        if (!data.email || !data.email.includes('@')) {
+            return { success: false, error: 'Email é obrigatório e deve ser válido' };
+        }
+
+        // Verificar se email já está cadastrado
+        if (APP_DATA.users.some(u => u.email?.toLowerCase() === data.email.toLowerCase())) {
+            return { success: false, error: 'Este email já está cadastrado' };
+        }
+
         if (APP_DATA.users.some(u => u.avakinName.toLowerCase() === data.avakinName.toLowerCase())) {
             return { success: false, error: 'Este nome do Avakin já está cadastrado' };
         }
@@ -490,13 +505,13 @@ const Auth = {
         const newUser = {
             id: 'user' + Date.now(),
             avakinName: data.avakinName,
-            email: data.email || '',
+            email: data.email.toLowerCase(),
             instagram: data.instagram,
             friendCode: data.friendCode,
             characterHistory: data.characterHistory,
             password: data.password,
             role: 'member',
-            status: 'approved', // Aprovação automática solicitada pelo admin
+            status: 'approved', // Aprovação automática
             avatar: null,
             faction: null,
             job: null,
@@ -505,7 +520,7 @@ const Auth = {
                 accountNumber: 'NTQ-' + Math.floor(1000 + Math.random() * 9000),
                 creditLimit: 1000,
                 creditUsed: 0,
-                pixKey: data.avakinName.toLowerCase().replace(/\s/g, '') + '@ntq'
+                pixKey: data.email.split('@')[0] + '@ntq'
             },
             createdAt: new Date().toISOString(),
             lastLogin: null,
@@ -525,11 +540,11 @@ const Auth = {
         }
 
         DataManager.save();
-        DataManager.log('Novo cadastro', newUser.avakinName);
+        DataManager.log('Novo cadastro', newUser.avakinName + ' (' + newUser.email + ')');
 
         return {
             success: true,
-            message: 'Cadastro realizado! Você já pode fazer login.'
+            message: 'Cadastro realizado! Você já pode fazer login com seu email.'
         };
     }
 };
@@ -632,10 +647,11 @@ const DataManager = {
                 });
             }
 
-            // GARANTIR QUE O ADMIN PADRÃO SEMPRE EXISTA
+            // GARANTIR QUE O ADMIN PADRÃO SEMPRE EXISTA COM CREDENCIAIS CORRETAS
             const defaultAdmin = {
                 id: 'admin001',
                 avakinName: 'NeoToquioAdmin',
+                email: 'admin@neotoquio.com',
                 instagram: '@neotoquiorp',
                 friendCode: 'NTQ-0000-0000',
                 characterHistory: 'Administrador supremo de Neo Toquio. Responsável pela gestão do servidor e manutenção da ordem.',
@@ -653,22 +669,37 @@ const DataManager = {
                     pixKey: 'admin@ntq'
                 },
                 createdAt: '2024-01-01',
-                lastLogin: null
+                lastLogin: null,
+                isOnline: false,
+                lastActivity: null
             };
 
-            // Verificar se o admin existe
-            const adminIndex = APP_DATA.users.findIndex(u => u.id === 'admin001');
-            if (adminIndex >= 0) {
-                // Admin existe, garantir que a senha está correta
-                if (!APP_DATA.users[adminIndex].password || APP_DATA.users[adminIndex].password === '') {
-                    APP_DATA.users[adminIndex].password = 'NTQ@2024Adm!';
+            // MIGRAÇÃO FORÇADA: Remover admin antigo e criar novo
+            // Verificar se existe admin com ID admin001 ou nome antigo 'Admin NTQ'
+            const oldAdminIndex = APP_DATA.users.findIndex(u =>
+                u.id === 'admin001' ||
+                u.avakinName?.toLowerCase() === 'admin ntq' ||
+                u.avakinName?.toLowerCase() === 'neotoquioadmin'
+            );
+
+            if (oldAdminIndex >= 0) {
+                // FORÇAR atualizações das credenciais do admin
+                APP_DATA.users[oldAdminIndex].id = 'admin001';
+                APP_DATA.users[oldAdminIndex].avakinName = 'NeoToquioAdmin';
+                APP_DATA.users[oldAdminIndex].email = 'admin@neotoquio.com';
+                APP_DATA.users[oldAdminIndex].password = 'NTQ@2024Adm!';
+                APP_DATA.users[oldAdminIndex].role = 'admin';
+                APP_DATA.users[oldAdminIndex].status = 'approved';
+                APP_DATA.users[oldAdminIndex].instagram = '@neotoquiorp';
+                APP_DATA.users[oldAdminIndex].characterHistory = defaultAdmin.characterHistory;
+                if (!APP_DATA.users[oldAdminIndex].bank) {
+                    APP_DATA.users[oldAdminIndex].bank = defaultAdmin.bank;
                 }
-                // Garantir role admin
-                APP_DATA.users[adminIndex].role = 'admin';
-                APP_DATA.users[adminIndex].status = 'approved';
+                console.log('Admin atualizado com novas credenciais');
             } else {
                 // Admin não existe, criar
                 APP_DATA.users.unshift(defaultAdmin);
+                console.log('Admin criado com novas credenciais');
             }
         } catch (e) {
             console.error('Error loading data:', e);

@@ -186,10 +186,10 @@ const Pages = {
 
                     <form id="login-form" class="auth-form">
                         <div class="input-group">
-                            <label class="input-label">Nome do Avakin</label>
+                            <label class="input-label">Email ou Nome do Avakin</label>
                             <div class="input-icon">
-                                <i class="fas fa-user"></i>
-                                <input type="text" class="input" id="login-name" placeholder="Seu nome no Avakin" required>
+                                <i class="fas fa-envelope"></i>
+                                <input type="text" class="input" id="login-name" placeholder="Seu email ou nome no Avakin" required>
                             </div>
                         </div>
 
@@ -228,6 +228,15 @@ const Pages = {
                     </div>
 
                     <form id="register-form" class="auth-form">
+                        <div class="input-group">
+                            <label class="input-label">Email (Gmail ou outro) *</label>
+                            <div class="input-icon">
+                                <i class="fas fa-envelope"></i>
+                                <input type="email" class="input" id="reg-email" placeholder="seuemail@gmail.com" required>
+                            </div>
+                            <small class="text-muted">Você usará este email para fazer login</small>
+                        </div>
+
                         <div class="form-row">
                             <div class="input-group">
                                 <label class="input-label">Nome do Avakin *</label>
@@ -3385,6 +3394,7 @@ const Pages = {
                 e.preventDefault();
 
                 const data = {
+                    email: document.getElementById('reg-email').value,
                     avakinName: document.getElementById('reg-avakin-name').value,
                     instagram: document.getElementById('reg-instagram').value,
                     friendCode: document.getElementById('reg-friend-code').value,
