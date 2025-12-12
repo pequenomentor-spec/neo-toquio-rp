@@ -1095,6 +1095,7 @@ const Pages = {
     members() {
         const approvedUsers = APP_DATA.users.filter(u => u.status === 'approved');
         const onlineCount = approvedUsers.filter(u => Auth.isUserOnline(u.id)).length;
+        const isMainAdmin = Auth.isAdmin();
 
         return `
             <div class="page-header">
@@ -1122,6 +1123,7 @@ const Pages = {
                             <th>Instagram</th>
                             <th>Facção</th>
                             <th>Emprego</th>
+                            ${isMainAdmin ? '<th>Saldo</th>' : ''}
                             <th>Cargo</th>
                             <th>Ações</th>
                         </tr>
@@ -1142,6 +1144,8 @@ const Pages = {
                 ? Utils.timeAgo(user.lastLogin)
                 : 'Nunca';
 
+            const userBalance = user.balance || 0;
+
             return `
                                 <tr class="${isOnline ? 'user-online' : 'user-offline'}">
                                     <td>
@@ -1159,6 +1163,16 @@ const Pages = {
                                     <td>${user.instagram || '-'}</td>
                                     <td>${factionDisplay}</td>
                                     <td>${user.job?.title || '-'}</td>
+                                    ${isMainAdmin ? `
+                                    <td>
+                                        <div class="balance-cell">
+                                            <span class="balance-amount">¥ ${userBalance.toLocaleString()}</span>
+                                            <button class="btn btn-ghost btn-sm text-success" onclick="Pages.editUserBalance('${user.id}', ${userBalance})" title="Editar saldo">
+                                                <i class="fas fa-coins"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                    ` : ''}
                                     <td>
                                         <select class="input input-sm" onchange="Pages.changeRole('${user.id}', this.value)" ${user.role === 'admin' ? 'disabled' : ''}>
                                             <option value="member" ${user.role === 'member' ? 'selected' : ''}>Membro</option>
@@ -1178,6 +1192,11 @@ const Pages = {
                                                     <i class="fas fa-briefcase"></i>
                                                 </button>
                                             ` : ''}
+                                            ${isMainAdmin && user.role !== 'admin' ? `
+                                                <button class="btn btn-ghost btn-sm text-danger" onclick="Pages.deleteUser('${user.id}')" title="Excluir usuário">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            ` : ''}
                                         </div>
                                     </td>
                                 </tr>
@@ -1188,6 +1207,7 @@ const Pages = {
             </div>
         `;
     },
+
 
     notFound() {
         return `
@@ -2506,6 +2526,65 @@ const Pages = {
     changeRole(userId, newRole) {
         DataManager.updateUserRole(userId, newRole);
         Utils.showToast('Cargo atualizado!', 'success');
+    },
+
+    // Editar saldo de usuário (Admin Principal)
+    editUserBalance(userId, currentBalance) {
+        const user = DataManager.getUser(userId);
+        if (!user) {
+            Utils.showToast('Usuário não encontrado', 'error');
+            return;
+        }
+
+        Components.showModal({
+            title: `💰 Editar Saldo - ${user.avakinName}`,
+            content: `
+                <div class="input-group">
+                    <label class="input-label">Saldo Atual</label>
+                    <div class="current-balance-display">
+                        <span class="balance-current">¥ ${currentBalance.toLocaleString()}</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Novo Saldo (¥)</label>
+                    <input type="number" class="input" id="new-balance" value="${currentBalance}" min="0" step="100">
+                </div>
+                <div class="quick-balance-buttons mt-4">
+                    <small class="text-muted d-block mb-2">Adicionar rapidamente:</small>
+                    <div class="quick-buttons-row">
+                        <button class="btn btn-sm btn-secondary" onclick="document.getElementById('new-balance').value = Number(document.getElementById('new-balance').value) + 1000">+¥1.000</button>
+                        <button class="btn btn-sm btn-secondary" onclick="document.getElementById('new-balance').value = Number(document.getElementById('new-balance').value) + 5000">+¥5.000</button>
+                        <button class="btn btn-sm btn-secondary" onclick="document.getElementById('new-balance').value = Number(document.getElementById('new-balance').value) + 10000">+¥10.000</button>
+                        <button class="btn btn-sm btn-secondary" onclick="document.getElementById('new-balance').value = Number(document.getElementById('new-balance').value) + 50000">+¥50.000</button>
+                    </div>
+                </div>
+            `,
+            footer: `
+                <button class="btn btn-secondary" onclick="Components.closeAllModals()">Cancelar</button>
+                <button class="btn btn-success" onclick="Pages.confirmEditBalance('${userId}')">
+                    <i class="fas fa-save"></i> Salvar Saldo
+                </button>
+            `
+        });
+    },
+
+    confirmEditBalance(userId) {
+        const newBalance = document.getElementById('new-balance').value;
+
+        if (!newBalance || isNaN(newBalance) || parseFloat(newBalance) < 0) {
+            Utils.showToast('Digite um valor válido', 'error');
+            return;
+        }
+
+        const result = DataManager.setUserBalance(userId, newBalance);
+
+        if (result.success) {
+            Utils.showToast('Saldo atualizado com sucesso!', 'success');
+            Components.closeAllModals();
+            Router.navigate('members');
+        } else {
+            Utils.showToast(result.error, 'error');
+        }
     },
 
     removeMemberFaction(userId) {
