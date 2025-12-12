@@ -631,6 +631,45 @@ const DataManager = {
                     }
                 });
             }
+
+            // GARANTIR QUE O ADMIN PADRÃO SEMPRE EXISTA
+            const defaultAdmin = {
+                id: 'admin001',
+                avakinName: 'Admin NTQ',
+                instagram: '@neotoquiorp',
+                friendCode: 'NTQ-0000-0000',
+                characterHistory: 'Administrador supremo de Neo Toquio...',
+                role: 'admin',
+                status: 'approved',
+                avatar: null,
+                password: 'admin123',
+                faction: null,
+                job: null,
+                balance: 999999,
+                bank: {
+                    accountNumber: 'NTQ-0001',
+                    creditLimit: 50000,
+                    creditUsed: 0,
+                    pixKey: 'admin@ntq'
+                },
+                createdAt: '2024-01-01',
+                lastLogin: null
+            };
+
+            // Verificar se o admin existe
+            const adminIndex = APP_DATA.users.findIndex(u => u.id === 'admin001');
+            if (adminIndex >= 0) {
+                // Admin existe, garantir que a senha está correta
+                if (!APP_DATA.users[adminIndex].password || APP_DATA.users[adminIndex].password === '') {
+                    APP_DATA.users[adminIndex].password = 'admin123';
+                }
+                // Garantir role admin
+                APP_DATA.users[adminIndex].role = 'admin';
+                APP_DATA.users[adminIndex].status = 'approved';
+            } else {
+                // Admin não existe, criar
+                APP_DATA.users.unshift(defaultAdmin);
+            }
         } catch (e) {
             console.error('Error loading data:', e);
         }
